@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Groupfie AR | Image to Video</title>
+    <!-- A-Frame Library -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <!-- MindAR for A-Frame (Image Tracking) -->
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+    <!-- Tailwind for UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #scanning-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            pointer-events: none;
+        }
+        .scan-frame {
+            width: 250px;
+            height: 250px;
+            border: 2px solid #00f2ff;
+            border-radius: 20px;
+            position: relative;
+            box-shadow: 0 0 20px #00f2ff;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.8; }
+        }
+        #start-button {
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- UI Overlay -->
+    <div id="scanning-overlay">
+        <div id="start-screen" class="text-center p-6 bg-slate-900/80 rounded-3xl backdrop-blur-md pointer-events-auto">
+            <h1 class="text-2xl font-black mb-2 text-cyan-400 uppercase tracking-widest">AR Video Scanner</h1>
+            <p class="text-sm text-slate-300 mb-6">Experience photos coming to life.</p>
+            <button id="start-button" class="bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold py-3 px-8 rounded-full transition-all active:scale-95 shadow-lg shadow-cyan-500/20">
+                START EXPERIENCE
+            </button>
+        </div>
+
+        <div id="scanner-ui" class="hidden flex flex-col items-center">
+            <div class="scan-frame">
+                <div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-cyan-500 px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase">
+                    Scan Target Image
+                </div>
+            </div>
+            <p class="mt-6 font-bold text-sm text-cyan-400 tracking-wide uppercase drop-shadow-md">Searching for target...</p>
+        </div>
+    </div>
+
+    <!-- AR Scene -->
+    <!-- Note: imageTargetSrc is the .mind file containing your image data -->
+    <a-scene 
+        mindar-image="imageTargetSrc: targets.mind; autoStart: false; uiScanning: no;" 
+        color-space="sRGB" 
+        renderer="colorManagement: true, physicallyCorrectLights" 
+        vr-mode-ui="enabled: false" 
+        device-orientation-permission-ui="enabled: false">
+        
+        <a-assets>
+            <!-- Your Video Source -->
+            <!-- Web browsers require 'muted' to autoplay, but we handle it via JS on target found -->
+         <video id="ar-video" 
+             src="video.mp4" 
+             preload="auto" 
+             response-type="arraybuffer" 
+             loop="true" 
+             crossorigin="anonymous" 
+             webkit-playsinline 
+             playsinline
+             muted>
+         </video>
+        </a-assets>
+
+        <a-camera position="0 0 0" look-controls="enabled: false" cursor="fuse: false; rayOrigin: mouse;" raycaster="far: 10000; objects: .clickable"></a-camera>
+
+        <!-- Target Anchor (0 is the first image in the .mind file) -->
+        <a-entity id="target" mindar-image-target="targetIndex: 0">
+            <!-- The Video Plane overlaying the image -->
+            <!-- Plane width/height should match your image aspect ratio -->
+            <a-video id="video-obj" src="#ar-video" width="1" height="0.552" position="0 0 0" rotation="0 0 0"></a-video>
+        </a-entity>
+    </a-scene>
+
+    <script>
+        const startButton = document.getElementById('start-button');
+        const startScreen = document.getElementById('start-screen');
+        const scannerUI = document.getElementById('scanner-ui');
+        const sceneEl = document.querySelector('a-scene');
+        const arVideo = document.getElementById('ar-video');
+        const targetEntity = document.getElementById('target');
+
+        // 1. Handle user interaction to start AR (Required by browsers for camera/audio)
+        startButton.addEventListener('click', () => {
+            startScreen.classList.add('hidden');
+            scannerUI.classList.remove('hidden');
+            sceneEl.systems['mindar-image-system'].start();
+        });
+
+        // 2. Play video when target is detected
+        targetEntity.addEventListener("targetFound", event => {
+            console.log("Target found");
+            scannerUI.classList.add('hidden');
+            arVideo.play();
+        });
+
+        // 3. Pause video when target is lost
+        targetEntity.addEventListener("targetLost", event => {
+            console.log("Target lost");
+            scannerUI.classList.remove('hidden');
+            arVideo.pause();
+        });
+
+        // Error handling for video
+        arVideo.addEventListener('error', (e) => {
+            console.error("Video Error:", e);
+        });
+    </script>
+</body>
+</html>
