@@ -67,35 +67,30 @@
     </div>
 
     <!-- AR Scene -->
-    <!-- Note: imageTargetSrc is the .mind file containing your image data -->
     <a-scene 
-        mindar-image="imageTargetSrc: targets.mind; autoStart: false; uiScanning: no;" 
+        mindar-image="imageTargetSrc:targets.mind; autoStart: false; uiScanning: no;" 
         color-space="sRGB" 
         renderer="colorManagement: true, physicallyCorrectLights" 
         vr-mode-ui="enabled: false" 
         device-orientation-permission-ui="enabled: false">
         
         <a-assets>
-            <!-- Your Video Source -->
-            <!-- Web browsers require 'muted' to autoplay, but we handle it via JS on target found -->
-         <video id="ar-video" 
-             src="video.mp4" 
-             preload="auto" 
-             response-type="arraybuffer" 
-             loop="true" 
-             crossorigin="anonymous" 
-             webkit-playsinline 
-             playsinline
-             muted>
-         </video>
+            <!-- 1. Added 'muted' attribute. Mobile browsers block non-muted autoplay/JS-play. -->
+            <video id="ar-video" 
+                   src="video.mp4" 
+                   preload="auto" 
+                   response-type="arraybuffer" 
+                   loop="true" 
+                   crossorigin="anonymous" 
+                   webkit-playsinline 
+                   playsinline
+                   muted>
+            </video>
         </a-assets>
 
         <a-camera position="0 0 0" look-controls="enabled: false" cursor="fuse: false; rayOrigin: mouse;" raycaster="far: 10000; objects: .clickable"></a-camera>
 
-        <!-- Target Anchor (0 is the first image in the .mind file) -->
         <a-entity id="target" mindar-image-target="targetIndex: 0">
-            <!-- The Video Plane overlaying the image -->
-            <!-- Plane width/height should match your image aspect ratio -->
             <a-video id="video-obj" src="#ar-video" width="1" height="0.552" position="0 0 0" rotation="0 0 0"></a-video>
         </a-entity>
     </a-scene>
@@ -108,28 +103,34 @@
         const arVideo = document.getElementById('ar-video');
         const targetEntity = document.getElementById('target');
 
-        // 1. Handle user interaction to start AR (Required by browsers for camera/audio)
         startButton.addEventListener('click', () => {
             startScreen.classList.add('hidden');
             scannerUI.classList.remove('hidden');
+            
+            // 2. IMPORTANT: "Prime" the video element within the user click event.
+            // This 'unlocks' the video for playback later when the target is found.
+            arVideo.play().then(() => {
+                arVideo.pause();
+                // If you want sound, you can try unmuting here, though some browsers might block it.
+                // arVideo.muted = false; 
+            }).catch(e => console.log("Video priming failed", e));
+
             sceneEl.systems['mindar-image-system'].start();
         });
 
-        // 2. Play video when target is detected
         targetEntity.addEventListener("targetFound", event => {
             console.log("Target found");
             scannerUI.classList.add('hidden');
+            // 3. Play the video. Since it was primed in the click handler, it should now work.
             arVideo.play();
         });
 
-        // 3. Pause video when target is lost
         targetEntity.addEventListener("targetLost", event => {
             console.log("Target lost");
             scannerUI.classList.remove('hidden');
             arVideo.pause();
         });
 
-        // Error handling for video
         arVideo.addEventListener('error', (e) => {
             console.error("Video Error:", e);
         });
